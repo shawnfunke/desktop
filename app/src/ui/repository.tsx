@@ -26,7 +26,7 @@ import { IMenu } from '../models/app-menu'
 import { StashDiffViewer } from './stashing'
 import { StashedChangesLoadStates } from '../models/stash-entry'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
-import { enableTutorial } from '../lib/feature-flag'
+import { enableTutorial, enableNDDBBanner } from '../lib/feature-flag'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
 import { ExternalEditor } from '../lib/editors'
 
@@ -135,7 +135,9 @@ export class RepositoryView extends React.Component<
 
         <div className="with-indicator">
           <span>History</span>
-          {this.props.state.compareState.isDivergingBranchBannerVisible ? (
+          {enableNDDBBanner() &&
+          this.props.state.compareState.divergingBranchBannerState
+            .isNudgeVisible ? (
             <Octicon
               className="indicator"
               symbol={OcticonSymbol.primitiveDot}
@@ -163,7 +165,7 @@ export class RepositoryView extends React.Component<
 
     const scrollTop =
       this.previousSection === RepositorySectionTab.History
-        ? this.state.compareListScrollTop
+        ? this.state.changesListScrollTop
         : undefined
     this.previousSection = RepositorySectionTab.Changes
 
@@ -211,6 +213,7 @@ export class RepositoryView extends React.Component<
     return (
       <CompareSidebar
         repository={this.props.repository}
+        isLocalRepository={this.props.state.remote === null}
         compareState={this.props.state.compareState}
         selectedCommitSha={this.props.state.commitSelection.sha}
         currentBranch={currentBranch}
