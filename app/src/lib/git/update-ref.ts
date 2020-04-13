@@ -31,20 +31,22 @@ export async function updateRef(
  *
  * @param repository - The repository in which the ref exists.
  * @param ref        - The ref to remove. Should be fully qualified, but may also be 'HEAD'.
- * @param reason     - The reflog entry (optional). Note that this is only useful when
- *                     deleting the HEAD reference as deleting any other reference will
- *                     implicitly delete the reflog file for that reference as well.
+ * @param reason     - The reflog entry.
  */
 export async function deleteRef(
   repository: Repository,
   ref: string,
-  reason?: string
-) {
-  const args = ['update-ref', '-d', ref]
+  reason: string
+): Promise<true | undefined> {
+  const result = await git(
+    ['update-ref', '-m', reason, '-d', ref],
+    repository.path,
+    'deleteRef'
+  )
 
-  if (reason !== undefined) {
-    args.push('-m', reason)
+  if (result.exitCode === 0) {
+    return true
   }
 
-  await git(args, repository.path, 'deleteRef')
+  return undefined
 }

@@ -22,9 +22,6 @@ import {
   rebaseConflictsHandler,
   localChangesOverwrittenHandler,
   refusedWorkflowUpdate,
-  samlReauthRequired,
-  insufficientGitHubRepoPermissions,
-  schannelUnableToCheckRevocationForCertificate,
 } from './dispatcher'
 import {
   AppStore,
@@ -59,7 +56,6 @@ import { UiActivityMonitor } from './lib/ui-activity-monitor'
 import { RepositoryStateCache } from '../lib/stores/repository-state-cache'
 import { ApiRepositoriesStore } from '../lib/stores/api-repositories-store'
 import { CommitStatusStore } from '../lib/stores/commit-status-store'
-import { PullRequestCoordinator } from '../lib/stores/pull-request-coordinator'
 
 if (__DEV__) {
   installDevGlobals()
@@ -238,11 +234,6 @@ const pullRequestStore = new PullRequestStore(
   repositoriesStore
 )
 
-const pullRequestCoordinator = new PullRequestCoordinator(
-  pullRequestStore,
-  repositoriesStore
-)
-
 const repositoryStateManager = new RepositoryStateCache(repo =>
   gitHubUserStore.getUsersForRepository(repo)
 )
@@ -259,7 +250,7 @@ const appStore = new AppStore(
   signInStore,
   accountsStore,
   repositoriesStore,
-  pullRequestCoordinator,
+  pullRequestStore,
   repositoryStateManager,
   apiRepositoriesStore
 )
@@ -281,11 +272,8 @@ dispatcher.registerErrorHandler(externalEditorErrorHandler)
 dispatcher.registerErrorHandler(openShellErrorHandler)
 dispatcher.registerErrorHandler(mergeConflictHandler)
 dispatcher.registerErrorHandler(lfsAttributeMismatchHandler)
-dispatcher.registerErrorHandler(insufficientGitHubRepoPermissions)
-dispatcher.registerErrorHandler(schannelUnableToCheckRevocationForCertificate)
 dispatcher.registerErrorHandler(gitAuthenticationErrorHandler)
 dispatcher.registerErrorHandler(pushNeedsPullHandler)
-dispatcher.registerErrorHandler(samlReauthRequired)
 dispatcher.registerErrorHandler(backgroundTaskHandler)
 dispatcher.registerErrorHandler(missingRepositoryHandler)
 dispatcher.registerErrorHandler(localChangesOverwrittenHandler)
@@ -321,7 +309,7 @@ ipcRenderer.on('blur', () => {
 
 ipcRenderer.on(
   'url-action',
-  (event: Electron.IpcRendererEvent, { action }: { action: URLActionType }) => {
+  (event: Electron.IpcMessageEvent, { action }: { action: URLActionType }) => {
     dispatcher.dispatchURLAction(action)
   }
 )

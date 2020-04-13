@@ -13,7 +13,6 @@ import {
   RepositoriesStore,
   AccountsStore,
   PullRequestStore,
-  PullRequestCoordinator,
 } from '../../src/lib/stores'
 import { InMemoryDispatcher } from '../helpers/in-memory-dispatcher'
 import {
@@ -58,8 +57,8 @@ describe('App', () => {
       new AsyncInMemoryStore()
     )
 
-    const pullRequestCoordinator = new PullRequestCoordinator(
-      new PullRequestStore(new TestPullRequestDatabase(), repositoriesStore),
+    const pullRequestStore = new PullRequestStore(
+      new TestPullRequestDatabase(),
       repositoriesStore
     )
 
@@ -81,7 +80,7 @@ describe('App', () => {
       new SignInStore(),
       accountsStore,
       repositoriesStore,
-      pullRequestCoordinator,
+      pullRequestStore,
       repositoryStateManager,
       apiRepositoriesStore
     )

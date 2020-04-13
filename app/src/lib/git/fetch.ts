@@ -3,9 +3,8 @@ import { Repository } from '../../models/repository'
 import { IGitAccount } from '../../models/git-account'
 import { IFetchProgress } from '../../models/progress'
 import { FetchProgressParser, executionOptionsWithProgress } from '../progress'
+import { envForAuthentication } from './authentication'
 import { enableRecurseSubmodulesFlag } from '../feature-flag'
-import { IRemote } from '../../models/remote'
-import { envForRemoteOperation } from './environment'
 
 async function getFetchArgs(
   repository: Repository,
@@ -57,16 +56,16 @@ async function getFetchArgs(
 export async function fetch(
   repository: Repository,
   account: IGitAccount | null,
-  remote: IRemote,
+  remote: string,
   progressCallback?: (progress: IFetchProgress) => void
 ): Promise<void> {
   let opts: IGitExecutionOptions = {
     successExitCodes: new Set([0]),
-    env: await envForRemoteOperation(account, remote.url),
+    env: envForAuthentication(account),
   }
 
   if (progressCallback) {
-    const title = `Fetching ${remote.name}`
+    const title = `Fetching ${remote}`
     const kind = 'fetch'
 
     opts = await executionOptionsWithProgress(
@@ -87,26 +86,15 @@ export async function fetch(
           progress.kind === 'progress' ? progress.details.text : progress.text
         const value = progress.percent
 
-        progressCallback({
-          kind,
-          title,
-          description,
-          value,
-          remote: remote.name,
-        })
+        progressCallback({ kind, title, description, value, remote })
       }
     )
 
     // Initial progress
-    progressCallback({ kind, title, value: 0, remote: remote.name })
+    progressCallback({ kind, title, value: 0, remote })
   }
 
-  const args = await getFetchArgs(
-    repository,
-    remote.name,
-    account,
-    progressCallback
-  )
+  const args = await getFetchArgs(repository, remote, account, progressCallback)
   await git(args, repository.path, 'fetch', opts)
 }
 
@@ -114,17 +102,17 @@ export async function fetch(
 export async function fetchRefspec(
   repository: Repository,
   account: IGitAccount | null,
-  remote: IRemote,
+  remote: string,
   refspec: string
 ): Promise<void> {
   const options = {
     successExitCodes: new Set([0, 128]),
-    env: await envForRemoteOperation(account, remote.url),
+    env: envForAuthentication(account),
   }
 
   const networkArguments = await gitNetworkArguments(repository, account)
 
-  const args = [...networkArguments, 'fetch', remote.name, refspec]
+  const args = [...networkArguments, 'fetch', remote, refspec]
 
   await git(args, repository.path, 'fetchRefspec', options)
 }

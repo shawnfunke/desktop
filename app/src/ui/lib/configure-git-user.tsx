@@ -12,11 +12,6 @@ import { Form } from '../lib/form'
 import { Button } from '../lib/button'
 import { TextBox } from '../lib/text-box'
 import { Row } from '../lib/row'
-import {
-  isConfigFileLockError,
-  parseConfigLockFilePathFromError,
-} from '../../lib/git'
-import { ConfigLockFileExists } from './config-lock-file-exists'
 
 interface IConfigureGitUserProps {
   /** The logged-in accounts. */
@@ -36,15 +31,6 @@ interface IConfigureGitUserState {
   readonly name: string
   readonly email: string
   readonly avatarURL: string | null
-
-  /**
-   * If unable to save Git configuration values (name, email)
-   * due to an existing configuration lock file this property
-   * will contain the (fully qualified) path to said lock file
-   * such that an error may be presented and the user given a
-   * choice to delete the lock file.
-   */
-  readonly existingLockFilePath?: string
 }
 
 /**
@@ -164,24 +150,11 @@ export class ConfigureGitUser extends React.Component<
       author,
       author,
       [],
-      [],
       []
     )
     const emoji = new Map()
-
-    const error =
-      this.state.existingLockFilePath !== undefined ? (
-        <ConfigLockFileExists
-          lockFilePath={this.state.existingLockFilePath}
-          onLockFileDeleted={this.onLockFileDeleted}
-          onError={this.onLockFileDeleteError}
-        />
-      ) : null
-
     return (
       <div id="configure-git-user">
-        {error}
-
         <Form className="sign-in-form" onSubmit={this.save}>
           <TextBox
             label="Name"
@@ -212,20 +185,10 @@ export class ConfigureGitUser extends React.Component<
             gitHubUsers={null}
             gitHubRepository={null}
             isLocal={false}
-            showUnpushedIndicator={false}
           />
         </div>
       </div>
     )
-  }
-
-  private onLockFileDeleted = () => {
-    this.setState({ existingLockFilePath: undefined })
-  }
-
-  private onLockFileDeleteError = (e: Error) => {
-    log.error('Failed to unlink config lock file', e)
-    this.setState({ existingLockFilePath: undefined })
   }
 
   private onNameChange = (name: string) => {
@@ -254,23 +217,12 @@ export class ConfigureGitUser extends React.Component<
   private save = async () => {
     const { name, email, globalUserName, globalUserEmail } = this.state
 
-    try {
-      if (name.length > 0 && name !== globalUserName) {
-        await setGlobalConfigValue('user.name', name)
-      }
+    if (name.length > 0 && name !== globalUserName) {
+      await setGlobalConfigValue('user.name', name)
+    }
 
-      if (email.length > 0 && email !== globalUserEmail) {
-        await setGlobalConfigValue('user.email', email)
-      }
-    } catch (e) {
-      if (isConfigFileLockError(e)) {
-        const lockFilePath = parseConfigLockFilePathFromError(e.result)
-
-        if (lockFilePath !== null) {
-          this.setState({ existingLockFilePath: lockFilePath })
-          return
-        }
-      }
+    if (email.length > 0 && email !== globalUserEmail) {
+      await setGlobalConfigValue('user.email', email)
     }
 
     if (this.props.onSave) {

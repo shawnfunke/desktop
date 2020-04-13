@@ -30,12 +30,9 @@ import {
   DismissalReason,
 } from '../notification/new-commits-banner'
 import { MergeCallToActionWithConflicts } from './merge-call-to-action-with-conflicts'
-import { assertNever } from '../../lib/fatal-error'
-import { enableNDDBBanner } from '../../lib/feature-flag'
 
 interface ICompareSidebarProps {
   readonly repository: Repository
-  readonly isLocalRepository: boolean
   readonly compareState: ICompareState
   readonly gitHubUsers: Map<string, IGitHubUser>
   readonly emoji: Map<string, string>
@@ -85,13 +82,6 @@ export class CompareSidebar extends React.Component<
       focusedBranch: null,
       hasConsumedNotification: false,
     }
-  }
-
-  public componentDidMount() {
-    this.props.dispatcher.setDivergingBranchNudgeVisibility(
-      this.props.repository,
-      false
-    )
   }
 
   public componentWillReceiveProps(nextProps: ICompareSidebarProps) {
@@ -157,17 +147,15 @@ export class CompareSidebar extends React.Component<
 
     return (
       <div id="compare-view">
-        {enableNDDBBanner() && (
-          <CSSTransitionGroup
-            transitionName="diverge-banner"
-            transitionAppear={true}
-            transitionAppearTimeout={DivergingBannerAnimationTimeout}
-            transitionEnterTimeout={DivergingBannerAnimationTimeout}
-            transitionLeaveTimeout={DivergingBannerAnimationTimeout}
-          >
-            {this.renderNotificationBanner()}
-          </CSSTransitionGroup>
-        )}
+        <CSSTransitionGroup
+          transitionName="diverge-banner"
+          transitionAppear={true}
+          transitionAppearTimeout={DivergingBannerAnimationTimeout}
+          transitionEnterTimeout={DivergingBannerAnimationTimeout}
+          transitionLeaveTimeout={DivergingBannerAnimationTimeout}
+        >
+          {this.renderNotificationBanner()}
+        </CSSTransitionGroup>
 
         <div className="compare-form">
           <FancyTextBox
@@ -194,9 +182,7 @@ export class CompareSidebar extends React.Component<
   }
 
   private renderNotificationBanner() {
-    const bannerState = this.props.compareState.divergingBranchBannerState
-
-    if (!bannerState.isPromptVisible || bannerState.isPromptDismissed) {
+    if (!this.props.compareState.isDivergingBranchBannerVisible) {
       return null
     }
 
@@ -268,7 +254,6 @@ export class CompareSidebar extends React.Component<
     return (
       <CommitList
         gitHubRepository={this.props.repository.gitHubRepository}
-        isLocalRepository={this.props.isLocalRepository}
         commitLookup={this.props.commitLookup}
         commitSHAs={commitSHAs}
         selectedSHA={this.props.selectedCommitSha}
@@ -566,21 +551,20 @@ export class CompareSidebar extends React.Component<
   }
 
   private onNotificationBannerDismissed = (reason: DismissalReason) => {
-    if (reason === DismissalReason.Close) {
-      this.props.dispatcher.dismissDivergingBranchBanner(this.props.repository)
-    }
+    this.props.dispatcher.setDivergingBranchBannerVisibility(
+      this.props.repository,
+      false
+    )
     this.props.dispatcher.recordDivergingBranchBannerDismissal()
 
     switch (reason) {
-      case DismissalReason.Close:
+      case 'close':
         this.setState({ hasConsumedNotification: false })
         break
-      case DismissalReason.Compare:
-      case DismissalReason.Merge:
+      case 'compare':
+      case 'merge':
         this.setState({ hasConsumedNotification: true })
         break
-      default:
-        assertNever(reason, 'Unknown reason')
     }
   }
 

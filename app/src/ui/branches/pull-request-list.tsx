@@ -11,14 +11,7 @@ import { PullRequest } from '../../models/pull-request'
 import { NoPullRequests } from './no-pull-requests'
 import { IMatches } from '../../lib/fuzzy-find'
 import { Dispatcher } from '../dispatcher'
-import {
-  RepositoryWithGitHubRepository,
-  getNonForkGitHubRepository,
-} from '../../models/repository'
-import { Button } from '../lib/button'
-import { Octicon, OcticonSymbol } from '../octicons'
-import { FoldoutType } from '../../lib/app-state'
-import { startTimer } from '../lib/timing'
+import { GitHubRepository } from '../../models/github-repository'
 
 interface IPullRequestListItem extends IFilterListItem {
   readonly id: string
@@ -35,17 +28,35 @@ interface IPullRequestListProps {
   /** The currently selected pull request */
   readonly selectedPullRequest: PullRequest | null
 
+  /** The name of the repository. */
+  readonly repositoryName: string
+
   /** Is the default branch currently checked out? */
   readonly isOnDefaultBranch: boolean
+
+  /** The current filter text to render */
+  readonly filterText: string
+
+  /** Called when the user clicks on a pull request. */
+  readonly onItemClick: (pullRequest: PullRequest) => void
 
   /** Called when the user wants to dismiss the foldout. */
   readonly onDismiss: () => void
 
+  /** Callback to fire when the filter text is changed */
+  readonly onFilterTextChanged: (filterText: string) => void
+
   /** Called when the user opts to create a branch */
   readonly onCreateBranch: () => void
 
+  /** Called when the user opts to create a pull request */
+  readonly onCreatePullRequest: () => void
+
+  /** Called to render content after the filter. */
+  readonly renderPostFilter?: () => JSX.Element | null
+
   /** Callback fired when user selects a new pull request */
-  readonly onSelectionChanged: (
+  readonly onSelectionChanged?: (
     pullRequest: PullRequest | null,
     source: SelectionSource
   ) => void
@@ -59,14 +70,13 @@ interface IPullRequestListProps {
   ) => void
 
   readonly dispatcher: Dispatcher
-  readonly repository: RepositoryWithGitHubRepository
+  readonly repository: GitHubRepository
 
   /** Are we currently loading pull requests? */
   readonly isLoadingPullRequests: boolean
 }
 
 interface IPullRequestListState {
-  readonly filterText: string
   readonly groupedItems: ReadonlyArray<IFilterListGroup<IPullRequestListItem>>
   readonly selectedItem: IPullRequestListItem | null
 }
@@ -104,7 +114,6 @@ export class PullRequestList extends React.Component<
     const selectedItem = resolveSelectedItem(group, props, null)
 
     this.state = {
-      filterText: '',
       groupedItems: [group],
       selectedItem,
     }
@@ -128,15 +137,14 @@ export class PullRequestList extends React.Component<
         groups={this.state.groupedItems}
         selectedItem={this.state.selectedItem}
         renderItem={this.renderPullRequest}
-        filterText={this.state.filterText}
-        onFilterTextChanged={this.onFilterTextChanged}
+        filterText={this.props.filterText}
+        onFilterTextChanged={this.props.onFilterTextChanged}
         invalidationProps={this.props.pullRequests}
         onItemClick={this.onItemClick}
         onSelectionChanged={this.onSelectionChanged}
         onFilterKeyDown={this.props.onFilterKeyDown}
-        renderGroupHeader={this.renderListHeader}
         renderNoItems={this.renderNoItems}
-        renderPostFilter={this.renderPostFilter}
+        renderPostFilter={this.props.renderPostFilter}
       />
     )
   }
@@ -144,12 +152,12 @@ export class PullRequestList extends React.Component<
   private renderNoItems = () => {
     return (
       <NoPullRequests
-        isSearch={this.state.filterText.length > 0}
+        isSearch={this.props.filterText.length > 0}
         isLoadingPullRequests={this.props.isLoadingPullRequests}
-        repositoryName={this.getRepositoryName()}
+        repositoryName={this.props.repositoryName}
         isOnDefaultBranch={this.props.isOnDefaultBranch}
         onCreateBranch={this.props.onCreateBranch}
-        onCreatePullRequest={this.onCreatePullRequest}
+        onCreatePullRequest={this.props.onCreatePullRequest}
       />
     )
   }
@@ -168,77 +176,27 @@ export class PullRequestList extends React.Component<
         author={pr.author}
         matches={matches}
         dispatcher={this.props.dispatcher}
-        repository={pr.base.gitHubRepository}
+        repository={this.props.repository}
       />
     )
   }
 
-  private onItemClick = (
-    item: IPullRequestListItem,
-    source: SelectionSource
-  ) => {
-    const pullRequest = item.pullRequest
-
-    this.props.dispatcher.closeFoldout(FoldoutType.Branch)
-    const timer = startTimer(
-      'checkout pull request from list',
-      this.props.repository
-    )
-    this.props.dispatcher
-      .checkoutPullRequest(this.props.repository, pullRequest)
-      .then(() => timer.done())
-
-    this.props.onSelectionChanged(pullRequest, source)
+  private onItemClick = (item: IPullRequestListItem) => {
+    if (this.props.onItemClick) {
+      this.props.onItemClick(item.pullRequest)
+    }
   }
 
   private onSelectionChanged = (
     selectedItem: IPullRequestListItem | null,
     source: SelectionSource
   ) => {
-    this.props.onSelectionChanged(
-      selectedItem != null ? selectedItem.pullRequest : null,
-      source
-    )
-  }
-
-  private getRepositoryName(): string {
-    return getNonForkGitHubRepository(this.props.repository).fullName
-  }
-
-  private renderListHeader = () => {
-    return (
-      <div className="filter-list-group-header">
-        Pull requests in {this.getRepositoryName()}
-      </div>
-    )
-  }
-
-  private onRefreshPullRequests = () => {
-    this.props.dispatcher.refreshPullRequests(this.props.repository)
-  }
-
-  private renderPostFilter = () => {
-    return (
-      <Button
-        disabled={this.props.isLoadingPullRequests}
-        onClick={this.onRefreshPullRequests}
-        tooltip="Refresh the list of pull requests"
-      >
-        <Octicon
-          symbol={OcticonSymbol.sync}
-          className={this.props.isLoadingPullRequests ? 'spin' : undefined}
-        />
-      </Button>
-    )
-  }
-
-  private onFilterTextChanged = (text: string) => {
-    this.setState({ filterText: text })
-  }
-
-  private onCreatePullRequest = () => {
-    this.props.dispatcher.closeFoldout(FoldoutType.Branch)
-    this.props.dispatcher.createPullRequest(this.props.repository)
+    if (this.props.onSelectionChanged) {
+      this.props.onSelectionChanged(
+        selectedItem != null ? selectedItem.pullRequest : null,
+        source
+      )
+    }
   }
 }
 

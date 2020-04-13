@@ -3,8 +3,10 @@ import {
   KnownRepositoryGroup,
 } from '../../src/ui/repositories-list/group-repositories'
 import { Repository, ILocalRepositoryState } from '../../src/models/repository'
+import { GitHubRepository } from '../../src/models/github-repository'
+import { Owner } from '../../src/models/owner'
+import { getDotComAPIEndpoint } from '../../src/lib/api'
 import { CloningRepository } from '../../src/models/cloning-repository'
-import { gitHubRepoFixture } from '../helpers/github-repo-builder'
 
 describe('repository list grouping', () => {
   const repositories: Array<Repository | CloningRepository> = [
@@ -12,17 +14,17 @@ describe('repository list grouping', () => {
     new Repository(
       'repo2',
       2,
-      gitHubRepoFixture({ owner: 'me', name: 'my-repo2' }),
+      new GitHubRepository(
+        'my-repo2',
+        new Owner('me', getDotComAPIEndpoint(), null),
+        1
+      ),
       false
     ),
     new Repository(
       'repo3',
       3,
-      gitHubRepoFixture({
-        owner: '',
-        name: 'my-repo3',
-        endpoint: 'github.big-corp.com',
-      }),
+      new GitHubRepository('my-repo3', new Owner('', '', null), 1),
       false
     ),
   ]
@@ -57,14 +59,22 @@ describe('repository list grouping', () => {
     const repoB = new Repository(
       'b',
       2,
-      gitHubRepoFixture({ owner: 'me', name: 'b' }),
+      new GitHubRepository(
+        'b',
+        new Owner('me', getDotComAPIEndpoint(), null),
+        1
+      ),
       false
     )
     const repoC = new Repository('c', 2, null, false)
     const repoD = new Repository(
       'd',
       2,
-      gitHubRepoFixture({ owner: 'me', name: 'd' }),
+      new GitHubRepository(
+        'd',
+        new Owner('me', getDotComAPIEndpoint(), null),
+        1
+      ),
       false
     )
     const repoZ = new Repository('z', 3, null, false)
@@ -95,33 +105,41 @@ describe('repository list grouping', () => {
     const repoA = new Repository(
       'repo',
       1,
-      gitHubRepoFixture({ owner: 'user1', name: 'repo' }),
+      new GitHubRepository(
+        'repo',
+        new Owner('user1', getDotComAPIEndpoint(), null),
+        1
+      ),
       false
     )
     const repoB = new Repository(
       'repo',
       2,
-      gitHubRepoFixture({ owner: 'user2', name: 'repo' }),
+      new GitHubRepository(
+        'repo',
+        new Owner('user2', getDotComAPIEndpoint(), null),
+        2
+      ),
       false
     )
     const repoC = new Repository(
       'enterprise-repo',
       3,
-      gitHubRepoFixture({
-        owner: 'business',
-        name: 'enterprise-repo',
-        endpoint: '',
-      }),
+      new GitHubRepository(
+        'enterprise-repo',
+        new Owner('business', '', null),
+        1
+      ),
       false
     )
     const repoD = new Repository(
       'enterprise-repo',
       3,
-      gitHubRepoFixture({
-        owner: 'silliness',
-        name: 'enterprise-repo',
-        endpoint: '',
-      }),
+      new GitHubRepository(
+        'enterprise-repo',
+        new Owner('silliness', '', null),
+        1
+      ),
       false
     )
 

@@ -39,7 +39,6 @@ import { GitRebaseProgress } from '../models/rebase'
 import { RebaseFlowStep } from '../models/rebase-flow-step'
 import { IStashEntry } from '../models/stash-entry'
 import { TutorialStep } from '../models/tutorial-step'
-import { UncommittedChangesStrategyKind } from '../models/uncommitted-changes-strategy'
 
 export enum SelectionType {
   Repository,
@@ -174,9 +173,6 @@ export interface IAppState {
 
   /** Should the app prompt the user to confirm a force push? */
   readonly askForConfirmationOnForcePush: boolean
-
-  /** How the app should handle uncommitted changes when switching branches */
-  readonly uncommittedChangesStrategyKind: UncommittedChangesStrategyKind
 
   /** The external editor to use when opening repositories */
   readonly selectedExternalEditor: ExternalEditor | null
@@ -640,8 +636,8 @@ export interface ICompareBranch {
 }
 
 export interface ICompareState {
-  /** The current state of the NBBD banner */
-  readonly divergingBranchBannerState: IDivergingBranchBannerState
+  /** Show the diverging notification banner */
+  readonly isDivergingBranchBannerVisible: boolean
 
   /** The current state of the compare form, based on user input */
   readonly formState: IDisplayHistory | ICompareBranch
@@ -693,17 +689,6 @@ export interface ICompareState {
     branch: Branch | null
     aheadBehind: IAheadBehind | null
   }
-}
-
-export interface IDivergingBranchBannerState {
-  /** Show the diverging notification banner */
-  readonly isPromptVisible: boolean
-
-  /** Has the user dismissed the notification banner? */
-  readonly isPromptDismissed: boolean
-
-  /** Show the diverging notification nudge on the tab */
-  readonly isNudgeVisible: boolean
 }
 
 export interface ICompareFormUpdate {

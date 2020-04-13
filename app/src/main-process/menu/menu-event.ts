@@ -36,4 +36,3 @@ export type MenuEvent =
   | 'hide-stashed-changes'
   | 'test-prune-branches'
   | 'find-text'
-  | 'create-issue-in-repository-on-github'

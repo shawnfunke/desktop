@@ -38,6 +38,7 @@ export class RebaseProgressDialog extends React.Component<
       <Dialog
         dismissable={false}
         onDismissed={this.onDismissed}
+        disableClickDismissalAlways={false}
         id="rebase-progress"
         title="Rebase in progress"
       >

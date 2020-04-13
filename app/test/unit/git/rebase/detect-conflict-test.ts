@@ -9,6 +9,7 @@ import {
   rebase,
   RebaseResult,
 } from '../../../../src/lib/git/rebase'
+import { Commit } from '../../../../src/models/commit'
 import {
   AppFileStatusKind,
   CommittedFileChange,
@@ -16,7 +17,6 @@ import {
 import { createRepository } from '../../../helpers/repository-builder-rebase-test'
 import { getStatusOrThrow } from '../../../helpers/status'
 import { getBranchOrError } from '../../../helpers/git'
-import { IBranchTip } from '../../../../src/models/branch'
 
 const baseBranchName = 'base-branch'
 const featureBranchName = 'this-is-a-feature'
@@ -162,7 +162,7 @@ describe('git/rebase', () => {
   })
 
   describe('continue after resolving conflicts', () => {
-    let beforeRebaseTip: IBranchTip
+    let beforeRebaseTip: Commit
     let result: RebaseResult
     let status: IStatusResult
 
@@ -238,7 +238,7 @@ describe('git/rebase', () => {
   })
 
   describe('continue with additional changes unrelated to conflicted files', () => {
-    let beforeRebaseTip: IBranchTip
+    let beforeRebaseTip: Commit
     let filesInRebasedCommit: ReadonlyArray<CommittedFileChange>
     let result: RebaseResult
     let status: IStatusResult

@@ -104,7 +104,7 @@ export class CrashApp extends React.Component<ICrashAppProps, ICrashAppState> {
 
     ipcRenderer.on(
       'error',
-      (event: Electron.IpcRendererEvent, crashDetails: ICrashDetails) => {
+      (event: Electron.IpcMessageEvent, crashDetails: ICrashDetails) => {
         this.setState(crashDetails)
       }
     )

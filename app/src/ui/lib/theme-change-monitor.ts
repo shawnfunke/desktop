@@ -6,12 +6,14 @@ import { supportsDarkMode, isDarkModeEnabled } from './dark-theme'
 class ThemeChangeMonitor implements IDisposable {
   private readonly emitter = new Emitter()
 
+  private subscriptionID: number | null = null
+
   public constructor() {
     this.subscribe()
   }
 
   public dispose() {
-    remote.nativeTheme.removeAllListeners()
+    this.unsubscribe()
   }
 
   private subscribe = () => {
@@ -19,7 +21,10 @@ class ThemeChangeMonitor implements IDisposable {
       return
     }
 
-    remote.nativeTheme.addListener('updated', this.onThemeNotificationFromOS)
+    this.subscriptionID = remote.systemPreferences.subscribeNotification(
+      'AppleInterfaceThemeChangedNotification',
+      this.onThemeNotificationFromOS
+    )
   }
 
   private onThemeNotificationFromOS = (event: string, userInfo: any) => {
@@ -29,6 +34,13 @@ class ThemeChangeMonitor implements IDisposable {
       ? ApplicationTheme.Dark
       : ApplicationTheme.Light
     this.emitThemeChanged(theme)
+  }
+
+  private unsubscribe = () => {
+    if (this.subscriptionID !== null) {
+      remote.systemPreferences.unsubscribeNotification(this.subscriptionID)
+      this.subscriptionID = null
+    }
   }
 
   public onThemeChanged(fn: (theme: ApplicationTheme) => void): Disposable {

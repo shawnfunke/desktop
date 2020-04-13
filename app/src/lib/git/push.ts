@@ -10,9 +10,7 @@ import { Repository } from '../../models/repository'
 import { IPushProgress } from '../../models/progress'
 import { IGitAccount } from '../../models/git-account'
 import { PushProgressParser, executionOptionsWithProgress } from '../progress'
-import { AuthenticationErrors } from './authentication'
-import { IRemote } from '../../models/remote'
-import { envForRemoteOperation } from './environment'
+import { envForAuthentication, AuthenticationErrors } from './authentication'
 
 export type PushOptions = {
   readonly forceWithLease: boolean
@@ -43,7 +41,7 @@ export type PushOptions = {
 export async function push(
   repository: Repository,
   account: IGitAccount | null,
-  remote: IRemote,
+  remote: string,
   localBranch: string,
   remoteBranch: string | null,
   options?: PushOptions,
@@ -54,7 +52,7 @@ export async function push(
   const args = [
     ...networkArguments,
     'push',
-    remote.name,
+    remote,
     remoteBranch ? `${localBranch}:${remoteBranch}` : localBranch,
   ]
 
@@ -68,13 +66,13 @@ export async function push(
   expectedErrors.add(DugiteError.ProtectedBranchForcePush)
 
   let opts: IGitExecutionOptions = {
-    env: await envForRemoteOperation(account, remote.url),
+    env: envForAuthentication(account),
     expectedErrors,
   }
 
   if (progressCallback) {
     args.push('--progress')
-    const title = `Pushing to ${remote.name}`
+    const title = `Pushing to ${remote}`
     const kind = 'push'
 
     opts = await executionOptionsWithProgress(
@@ -90,7 +88,7 @@ export async function push(
           title,
           description,
           value,
-          remote: remote.name,
+          remote,
           branch: localBranch,
         })
       }
@@ -101,7 +99,7 @@ export async function push(
       kind: 'push',
       title,
       value: 0,
-      remote: remote.name,
+      remote,
       branch: localBranch,
     })
   }

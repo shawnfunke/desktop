@@ -463,7 +463,7 @@ export class AuthorInput extends React.Component<IAuthorInputProps, {}> {
             cancelAnimationFrame(this.resizeDebounceId)
             this.resizeDebounceId = null
           }
-          this.resizeDebounceId = requestAnimationFrame(this.onResized)
+          requestAnimationFrame(this.onResized)
         }
       }
     })

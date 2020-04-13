@@ -504,19 +504,19 @@ export class CloneRepository extends React.Component<
 
   private onChooseDirectory = async () => {
     const window = remote.getCurrentWindow()
-    const { filePaths } = await remote.dialog.showOpenDialog(window, {
+    const directories = remote.dialog.showOpenDialog(window, {
       properties: ['createDirectory', 'openDirectory'],
     })
 
-    if (filePaths.length === 0) {
+    if (!directories) {
       return
     }
 
     const tabState = this.getSelectedTabState()
     const lastParsedIdentifier = tabState.lastParsedIdentifier
     const directory = lastParsedIdentifier
-      ? Path.join(filePaths[0], lastParsedIdentifier.name)
-      : filePaths[0]
+      ? Path.join(directories[0], lastParsedIdentifier.name)
+      : directories[0]
 
     this.setSelectedTabState(
       { path: directory, error: null },

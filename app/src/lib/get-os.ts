@@ -1,4 +1,3 @@
-import { compare } from 'compare-versions'
 import * as OS from 'os'
 import { UAParser } from 'ua-parser-js'
 
@@ -18,8 +17,8 @@ export function getOS() {
   }
 }
 
-/** We're currently running macOS and it is at least Mojave. */
-export function isMacOsAndMojaveOrLater() {
+/** See the OS we're currently running on is at least Mojave. */
+export function isMojaveOrLater() {
   if (__DARWIN__) {
     const parser = new UAParser()
     const os = parser.getOS()
@@ -28,21 +27,9 @@ export function isMacOsAndMojaveOrLater() {
       return false
     }
 
-    return compare(os.version, '10.13.0', '>=')
-  }
-  return false
-}
+    const [major, minor] = os.version.split('.')
 
-/** We're currently running Windows 10 and it is at least 1809 Preview Build 17666. */
-export function isWindows10And1809Preview17666OrLater() {
-  if (__WIN32__) {
-    const version = OS.release()
-
-    if (version === undefined) {
-      return false
-    }
-
-    return compare(version, '10.0.17666', '>=')
+    return major === '10' && minor > '13'
   }
   return false
 }

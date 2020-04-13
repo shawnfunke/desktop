@@ -7,12 +7,8 @@ import {
   CheckoutProgressParser,
   executionOptionsWithProgress,
 } from '../progress'
-import { AuthenticationErrors } from './authentication'
+import { envForAuthentication, AuthenticationErrors } from './authentication'
 import { enableRecurseSubmodulesFlag } from '../feature-flag'
-import {
-  envForRemoteOperation,
-  getFallbackUrlForProxyResolve,
-} from './environment'
 
 export type ProgressCallback = (progress: ICheckoutProgress) => void
 
@@ -67,10 +63,7 @@ export async function checkoutBranch(
   progressCallback?: ProgressCallback
 ): Promise<true> {
   let opts: IGitExecutionOptions = {
-    env: await envForRemoteOperation(
-      account,
-      getFallbackUrlForProxyResolve(account, repository)
-    ),
+    env: envForAuthentication(account),
     expectedErrors: AuthenticationErrors,
   }
 

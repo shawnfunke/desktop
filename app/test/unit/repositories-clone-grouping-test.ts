@@ -44,8 +44,6 @@ describe('clone repository grouping', () => {
         fork: true,
         default_branch: '',
         pushed_at: '1995-12-17T03:24:00',
-        has_issues: true,
-        archived: false,
         permissions: {
           pull: true,
           push: true,
@@ -62,8 +60,6 @@ describe('clone repository grouping', () => {
         fork: false,
         default_branch: '',
         pushed_at: '1995-12-17T03:24:00',
-        has_issues: true,
-        archived: false,
         permissions: {
           pull: true,
           push: true,
@@ -80,8 +76,6 @@ describe('clone repository grouping', () => {
         fork: false,
         default_branch: '',
         pushed_at: '1995-12-17T03:24:00',
-        has_issues: true,
-        archived: false,
         permissions: {
           pull: true,
           push: true,

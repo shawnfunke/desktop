@@ -190,8 +190,10 @@ export class ShowConflictedFilesDialog extends React.Component<
     return (
       <Dialog
         id="rebase-conflicts-list"
+        dismissable={true}
         onDismissed={this.onDismissed}
         title={headerTitle}
+        disableClickDismissalAlways={true}
         onSubmit={this.onSubmit}
       >
         <DialogContent>
