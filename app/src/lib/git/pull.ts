@@ -8,10 +8,8 @@ import { Repository } from '../../models/repository'
 import { IPullProgress } from '../../models/progress'
 import { IGitAccount } from '../../models/git-account'
 import { PullProgressParser, executionOptionsWithProgress } from '../progress'
-import { AuthenticationErrors } from './authentication'
+import { envForAuthentication, AuthenticationErrors } from './authentication'
 import { enableRecurseSubmodulesFlag } from '../feature-flag'
-import { IRemote } from '../../models/remote'
-import { envForRemoteOperation } from './environment'
 
 async function getPullArgs(
   repository: Repository,
@@ -52,16 +50,16 @@ async function getPullArgs(
 export async function pull(
   repository: Repository,
   account: IGitAccount | null,
-  remote: IRemote,
+  remote: string,
   progressCallback?: (progress: IPullProgress) => void
 ): Promise<void> {
   let opts: IGitExecutionOptions = {
-    env: await envForRemoteOperation(account, remote.url),
+    env: envForAuthentication(account),
     expectedErrors: AuthenticationErrors,
   }
 
   if (progressCallback) {
-    const title = `Pulling ${remote.name}`
+    const title = `Pulling ${remote}`
     const kind = 'pull'
 
     opts = await executionOptionsWithProgress(
@@ -83,26 +81,15 @@ export async function pull(
 
         const value = progress.percent
 
-        progressCallback({
-          kind,
-          title,
-          description,
-          value,
-          remote: remote.name,
-        })
+        progressCallback({ kind, title, description, value, remote })
       }
     )
 
     // Initial progress
-    progressCallback({ kind, title, value: 0, remote: remote.name })
+    progressCallback({ kind, title, value: 0, remote })
   }
 
-  const args = await getPullArgs(
-    repository,
-    remote.name,
-    account,
-    progressCallback
-  )
+  const args = await getPullArgs(repository, remote, account, progressCallback)
   const result = await git(args, repository.path, 'pull', opts)
 
   if (result.gitErrorDescription) {

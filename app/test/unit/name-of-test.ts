@@ -1,5 +1,6 @@
 import { Repository, nameOf } from '../../src/models/repository'
-import { gitHubRepoFixture } from '../helpers/github-repo-builder'
+import { GitHubRepository } from '../../src/models/github-repository'
+import { Owner } from '../../src/models/owner'
 
 const repoPath = '/some/cool/path'
 
@@ -13,7 +14,11 @@ describe('nameOf', () => {
   })
 
   it('Returns the name of the repo', () => {
-    const ghRepo = gitHubRepoFixture({ owner: 'desktop', name: 'name' })
+    const ghRepo = new GitHubRepository(
+      'name',
+      new Owner('desktop', '', null),
+      null
+    )
     const repo = new Repository(repoPath, -1, ghRepo, false)
 
     const name = nameOf(repo)

@@ -44,7 +44,7 @@ export class WarnForcePushDialog extends React.Component<
         title={title}
         onDismissed={this.props.onDismissed}
         onSubmit={this.onBeginRebase}
-        dismissable={false}
+        disableClickDismissalAlways={true}
         type="warning"
       >
         <DialogContent>

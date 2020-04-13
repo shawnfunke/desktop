@@ -17,13 +17,13 @@ import { updateStore, UpdateStatus } from './lib/update-store'
 import { RetryAction } from '../models/retry-actions'
 import { shouldRenderApplicationMenu } from './lib/features'
 import { matchExistingRepository } from '../lib/repository-matching'
-import { getDotComAPIEndpoint } from '../lib/api'
+import { getDotComAPIEndpoint, IAPIRepository } from '../lib/api'
 import { ILaunchStats, SamplesURL } from '../lib/stats'
 import { getVersion, getName } from './lib/app-proxy'
 import { getOS } from '../lib/get-os'
 import { validatedRepositoryPath } from '../lib/stores/helpers/validated-repository-path'
 import { MenuEvent } from '../main-process/menu'
-import { Repository, getGitHubHtmlUrl } from '../models/repository'
+import { Repository } from '../models/repository'
 import { Branch } from '../models/branch'
 import { PreferencesTab } from '../models/preferences'
 import { findItemByAccessKey, itemIsSelectable } from '../models/app-menu'
@@ -104,16 +104,10 @@ import { StashAndSwitchBranch } from './stash-changes/stash-and-switch-branch-di
 import { OverwriteStash } from './stash-changes/overwrite-stashed-changes-dialog'
 import { ConfirmDiscardStashDialog } from './stashing/confirm-discard-stash'
 import { CreateTutorialRepositoryDialog } from './no-repositories/create-tutorial-repository-dialog'
-import { enableTutorial, enableForkyCreateBranchUI } from '../lib/feature-flag'
+import { enableTutorial } from '../lib/feature-flag'
 import { ConfirmExitTutorial } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
 import { WorkflowPushRejectedDialog } from './workflow-push-rejected/workflow-push-rejected'
-import { getUncommittedChangesStrategy } from '../models/uncommitted-changes-strategy'
-import { SAMLReauthRequiredDialog } from './saml-reauth-required/saml-reauth-required'
-import { CreateForkDialog } from './forks/create-fork-dialog'
-import { SChannelNoRevocationCheckDialog } from './schannel-no-revocation-check/schannel-no-revocation-check'
-import { findUpstreamRemoteBranch } from '../lib/branch'
-import { GitHubRepository } from '../models/github-repository'
 
 const MinuteInMilliseconds = 1000 * 60
 const HourInMilliseconds = MinuteInMilliseconds * 60
@@ -220,7 +214,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     ipcRenderer.on(
       'menu-event',
-      (event: Electron.IpcRendererEvent, { name }: { name: MenuEvent }) => {
+      (event: Electron.IpcMessageEvent, { name }: { name: MenuEvent }) => {
         this.onMenuEvent(name)
       }
     )
@@ -247,10 +241,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     ipcRenderer.on(
       'launch-timing-stats',
-      (
-        event: Electron.IpcRendererEvent,
-        { stats }: { stats: ILaunchStats }
-      ) => {
+      (event: Electron.IpcMessageEvent, { stats }: { stats: ILaunchStats }) => {
         console.info(`App ready time: ${stats.mainReadyTime}ms`)
         console.info(`Load time: ${stats.loadTime}ms`)
         console.info(`Renderer ready time: ${stats.rendererReadyTime}ms`)
@@ -262,7 +253,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     ipcRenderer.on(
       'certificate-error',
       (
-        event: Electron.IpcRendererEvent,
+        event: Electron.IpcMessageEvent,
         {
           certificate,
           error,
@@ -355,8 +346,6 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.viewRepositoryOnGitHub()
       case 'compare-on-github':
         return this.compareBranchOnDotcom()
-      case 'create-issue-in-repository-on-github':
-        return this.openIssueCreationOnGitHub()
       case 'open-in-shell':
         return this.openCurrentRepositoryInShell()
       case 'clone-repository':
@@ -695,7 +684,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     })
   }
 
-  private showCreateTutorialRepositoryPopup = () => {
+  private onCreateTutorialRepository = () => {
     if (!enableTutorial()) {
       return
     }
@@ -1105,28 +1094,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     })
   }
 
-  /**
-   * Opens a browser to the issue creation page
-   * of the current GitHub repository.
-   */
-  private openIssueCreationOnGitHub() {
-    const repository = this.getRepository()
-    // this will likely never be null since we disable the
-    // issue creation menu item for non-GitHub repositories
-    if (repository instanceof Repository) {
-      this.props.dispatcher.openIssueCreationPage(repository)
-    }
-  }
-
   private viewRepositoryOnGitHub() {
-    const repository = this.getRepository()
+    const url = this.getCurrentRepositoryGitHubURL()
 
-    if (repository instanceof Repository) {
-      const url = getGitHubHtmlUrl(repository)
-
-      if (url) {
-        this.props.dispatcher.openInBrowser(url)
-      }
+    if (url) {
+      this.props.dispatcher.openInBrowser(url)
+      return
     }
   }
 
@@ -1355,9 +1328,6 @@ export class App extends React.Component<IAppProps, IAppState> {
               this.state.askForConfirmationOnDiscardChanges
             }
             confirmForcePush={this.state.askForConfirmationOnForcePush}
-            uncommittedChangesStrategyKind={
-              this.state.uncommittedChangesStrategyKind
-            }
             selectedExternalEditor={this.state.selectedExternalEditor}
             optOutOfUsageTracking={this.state.optOutOfUsageTracking}
             enterpriseAccount={this.getEnterpriseAccount()}
@@ -1462,40 +1432,17 @@ export class App extends React.Component<IAppProps, IAppState> {
           return null
         }
 
-        let upstreamGhRepo: GitHubRepository | null = null
-        let upstreamDefaultBranch: Branch | null = null
-
-        if (
-          enableForkyCreateBranchUI() &&
-          repository.gitHubRepository !== null &&
-          repository.gitHubRepository.parent !== null
-        ) {
-          upstreamGhRepo = repository.gitHubRepository.parent
-          if (upstreamGhRepo.defaultBranch !== null) {
-            upstreamDefaultBranch =
-              findUpstreamRemoteBranch(
-                upstreamGhRepo.defaultBranch,
-                branchesState.allBranches
-              ) || null
-          }
-        }
-
         return (
           <CreateBranch
             key="create-branch"
             tip={branchesState.tip}
             defaultBranch={branchesState.defaultBranch}
-            upstreamDefaultBranch={upstreamDefaultBranch}
             allBranches={branchesState.allBranches}
             repository={repository}
-            upstreamGitHubRepository={upstreamGhRepo}
             onDismissed={this.onPopupDismissed}
             dispatcher={this.props.dispatcher}
             initialName={popup.initialName || ''}
             currentBranchProtected={currentBranchProtected}
-            selectedUncommittedChangesStrategy={getUncommittedChangesStrategy(
-              this.state.uncommittedChangesStrategyKind
-            )}
           />
         )
       }
@@ -1886,10 +1833,11 @@ export class App extends React.Component<IAppProps, IAppState> {
         return (
           <CreateTutorialRepositoryDialog
             key="create-tutorial-repository-dialog"
+            dispatcher={this.props.dispatcher}
             account={popup.account}
-            progress={popup.progress}
             onDismissed={this.onPopupDismissed}
-            onCreateTutorialRepository={this.onCreateTutorialRepository}
+            onTutorialRepositoryCreated={this.onTutorialRepositoryCreated}
+            onError={this.onTutorialRepositoryError}
           />
         )
       }
@@ -1911,32 +1859,6 @@ export class App extends React.Component<IAppProps, IAppState> {
             repository={popup.repository}
           />
         )
-      case PopupType.SAMLReauthRequired:
-        return (
-          <SAMLReauthRequiredDialog
-            onDismissed={this.onPopupDismissed}
-            organizationName={popup.organizationName}
-            endpoint={popup.endpoint}
-            retryAction={popup.retryAction}
-            dispatcher={this.props.dispatcher}
-          />
-        )
-      case PopupType.CreateFork:
-        return (
-          <CreateForkDialog
-            onDismissed={this.onPopupDismissed}
-            dispatcher={this.props.dispatcher}
-            repository={popup.repository}
-            account={popup.account}
-          />
-        )
-      case PopupType.SChannelNoRevocationCheck:
-        return (
-          <SChannelNoRevocationCheckDialog
-            onDismissed={this.onPopupDismissed}
-            url={popup.url}
-          />
-        )
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
@@ -1952,8 +1874,21 @@ export class App extends React.Component<IAppProps, IAppState> {
     this.props.dispatcher.closePopup()
   }
 
-  private onCreateTutorialRepository = (account: Account) => {
-    this.props.dispatcher.createTutorialRepository(account)
+  private onTutorialRepositoryError = (error: Error) => {
+    this.props.dispatcher.closePopup(PopupType.CreateTutorialRepository)
+    this.props.dispatcher.postError(error)
+  }
+
+  private onTutorialRepositoryCreated = (
+    path: string,
+    account: Account,
+    apiRepository: IAPIRepository
+  ) => {
+    return this.props.dispatcher.addTutorialRepository(
+      path,
+      account.endpoint,
+      apiRepository
+    )
   }
 
   private onShowRebaseConflictsBanner = (
@@ -2384,9 +2319,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       currentFoldout !== null && currentFoldout.type === FoldoutType.Branch
 
     const repository = selection.repository
-    const { branchesState, changesState } = selection.state
-    const hasAssociatedStash = changesState.stashEntry !== null
-    const hasChanges = changesState.workingDirectory.files.length > 0
+    const branchesState = selection.state.branchesState
 
     return (
       <BranchDropdown
@@ -2402,10 +2335,6 @@ export class App extends React.Component<IAppProps, IAppState> {
         shouldNudge={
           this.state.currentOnboardingTutorialStep === TutorialStep.CreateBranch
         }
-        selectedUncommittedChangesStrategy={getUncommittedChangesStrategy(
-          this.state.uncommittedChangesStrategyKind
-        )}
-        couldOverwriteStash={hasChanges && hasAssociatedStash}
       />
     )
   }
@@ -2489,7 +2418,7 @@ export class App extends React.Component<IAppProps, IAppState> {
           onCreate={this.showCreateRepository}
           onClone={this.showCloneRepo}
           onAdd={this.showAddLocalRepo}
-          onCreateTutorialRepository={this.showCreateTutorialRepositoryPopup}
+          onCreateTutorialRepository={this.onCreateTutorialRepository}
           onResumeTutorialRepository={this.onResumeTutorialRepository}
           tutorialPaused={this.isTutorialPaused()}
           apiRepositories={state.apiRepositories}
@@ -2510,9 +2439,6 @@ export class App extends React.Component<IAppProps, IAppState> {
 
       return (
         <RepositoryView
-          // When switching repositories we want to remount the RepositoryView
-          // component to reset the scroll positions.
-          key={selectedState.repository.hash}
           repository={selectedState.repository}
           state={selectedState.state}
           dispatcher={this.props.dispatcher}

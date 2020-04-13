@@ -2,14 +2,21 @@ import {
   findUpstreamRemote,
   UpstreamRemoteName,
 } from '../../src/lib/stores/helpers/find-upstream-remote'
-import { gitHubRepoFixture } from '../helpers/github-repo-builder'
+import { GitHubRepository } from '../../src/models/github-repository'
+import { Owner } from '../../src/models/owner'
 
 describe('findUpstreamRemote', () => {
   it('finds the upstream', () => {
-    const parent = gitHubRepoFixture({
-      name: 'github-release-stats',
-      owner: 'somsubhra',
-    })
+    const parent = new GitHubRepository(
+      'github-release-stats',
+      new Owner('somsubhra', 'https://api.github.com', null),
+      null,
+      false,
+      'https://github.com/Somsubhra/github-release-stats',
+      'master',
+      'https://github.com/Somsubhra/github-release-stats.git',
+      null
+    )
     const remotes = [
       {
         name: 'upstream',

@@ -18,7 +18,7 @@ export const shell: IAppShell = {
     return new Promise<boolean>((resolve, reject) => {
       ipcRenderer.once(
         'open-external-result',
-        (event: Electron.IpcRendererEvent, { result }: { result: boolean }) => {
+        (event: Electron.IpcMessageEvent, { result }: { result: boolean }) => {
           resolve(result)
         }
       )

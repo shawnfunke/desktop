@@ -95,7 +95,7 @@ export class CrashWindow {
       }
     })
 
-    ipcMain.on('crash-ready', (event: Electron.IpcMainEvent) => {
+    ipcMain.on('crash-ready', (event: Electron.IpcMessageEvent) => {
       log.debug(`Crash process is ready`)
 
       this.hasSentReadyEvent = true
@@ -104,7 +104,7 @@ export class CrashWindow {
       this.maybeEmitDidLoad()
     })
 
-    ipcMain.on('crash-quit', (event: Electron.IpcMainEvent) => {
+    ipcMain.on('crash-quit', (event: Electron.IpcMessageEvent) => {
       log.debug('Got quit signal from crash process')
       this.window.close()
     })

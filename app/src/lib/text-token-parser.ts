@@ -1,8 +1,4 @@
-import {
-  Repository,
-  isRepositoryWithGitHubRepository,
-  getNonForkGitHubRepository,
-} from '../models/repository'
+import { Repository } from '../models/repository'
 import { GitHubRepository } from '../models/github-repository'
 import { getHTMLURL } from './api'
 
@@ -63,8 +59,8 @@ export class Tokenizer {
   public constructor(emoji: Map<string, string>, repository?: Repository) {
     this.emoji = emoji
 
-    if (repository && isRepositoryWithGitHubRepository(repository)) {
-      this.repository = getNonForkGitHubRepository(repository)
+    if (repository) {
+      this.repository = repository.gitHubRepository
     }
   }
 

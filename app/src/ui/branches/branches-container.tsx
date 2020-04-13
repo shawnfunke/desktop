@@ -1,10 +1,7 @@
 import * as React from 'react'
 
 import { PullRequest } from '../../models/pull-request'
-import {
-  Repository,
-  isRepositoryWithGitHubRepository,
-} from '../../models/repository'
+import { Repository, nameOf } from '../../models/repository'
 import { Branch } from '../../models/branch'
 import { BranchesTab } from '../../models/branches-tab'
 import { PopupType } from '../../models/popup'
@@ -28,7 +25,7 @@ import { startTimer } from '../lib/timing'
 import {
   UncommittedChangesStrategyKind,
   UncommittedChangesStrategy,
-  stashOnCurrentBranch,
+  askToStash,
 } from '../../models/uncommitted-changes-strategy'
 
 interface IBranchesContainerProps {
@@ -48,16 +45,13 @@ interface IBranchesContainerProps {
   readonly isLoadingPullRequests: boolean
 
   readonly currentBranchProtected: boolean
-
-  readonly selectedUncommittedChangesStrategy: UncommittedChangesStrategy
-
-  readonly couldOverwriteStash: boolean
 }
 
 interface IBranchesContainerState {
   readonly selectedBranch: Branch | null
   readonly selectedPullRequest: PullRequest | null
   readonly branchFilterText: string
+  readonly pullRequestFilterText: string
 }
 
 /** The unified Branches and Pull Requests component. */
@@ -72,6 +66,7 @@ export class BranchesContainer extends React.Component<
       selectedBranch: props.currentBranch,
       selectedPullRequest: props.currentPullRequest,
       branchFilterText: '',
+      pullRequestFilterText: '',
     }
   }
 
@@ -107,7 +102,7 @@ export class BranchesContainer extends React.Component<
   }
 
   private renderOpenPullRequestsBubble() {
-    const pullRequests = this.props.pullRequests
+    const { pullRequests } = this.props
 
     if (pullRequests.length > 0) {
       return <span className="count">{pullRequests.length}</span>
@@ -173,11 +168,14 @@ export class BranchesContainer extends React.Component<
   }
 
   private renderPullRequests() {
-    const repository = this.props.repository
-    if (!isRepositoryWithGitHubRepository(repository)) {
+    const repository = this.props.repository.gitHubRepository
+
+    if (repository === null) {
       return null
     }
 
+    const pullRequests = this.props.pullRequests
+    const repo = this.props.repository
     const isOnDefaultBranch =
       this.props.defaultBranch &&
       this.props.currentBranch &&
@@ -186,16 +184,41 @@ export class BranchesContainer extends React.Component<
     return (
       <PullRequestList
         key="pr-list"
-        pullRequests={this.props.pullRequests}
-        selectedPullRequest={this.props.currentPullRequest}
+        pullRequests={pullRequests}
+        selectedPullRequest={this.state.selectedPullRequest}
+        repositoryName={nameOf(repo)}
         isOnDefaultBranch={!!isOnDefaultBranch}
         onSelectionChanged={this.onPullRequestSelectionChanged}
         onCreateBranch={this.onCreateBranch}
+        onCreatePullRequest={this.onCreatePullRequest}
+        filterText={this.state.pullRequestFilterText}
+        onFilterTextChanged={this.onPullRequestFilterTextChanged}
+        onItemClick={this.onPullRequestClicked}
         onDismiss={this.onDismiss}
+        renderPostFilter={this.renderPullRequestPostFilter}
         dispatcher={this.props.dispatcher}
         repository={repository}
         isLoadingPullRequests={this.props.isLoadingPullRequests}
       />
+    )
+  }
+
+  private onRefreshPullRequests = () => {
+    this.props.dispatcher.refreshPullRequests(this.props.repository)
+  }
+
+  private renderPullRequestPostFilter = () => {
+    return (
+      <Button
+        disabled={this.props.isLoadingPullRequests}
+        onClick={this.onRefreshPullRequests}
+        tooltip="Refresh the list of pull requests"
+      >
+        <Octicon
+          symbol={OcticonSymbol.sync}
+          className={this.props.isLoadingPullRequests ? 'spin' : undefined}
+        />
+      </Button>
     )
   }
 
@@ -218,29 +241,9 @@ export class BranchesContainer extends React.Component<
   private onBranchItemClick = (branch: Branch) => {
     this.props.dispatcher.closeFoldout(FoldoutType.Branch)
 
-    const {
-      currentBranch,
-      repository,
-      currentBranchProtected,
-      dispatcher,
-      couldOverwriteStash,
-    } = this.props
+    const { currentBranch, repository, currentBranchProtected } = this.props
 
     if (currentBranch == null || currentBranch.name !== branch.name) {
-      if (
-        !currentBranchProtected &&
-        this.props.selectedUncommittedChangesStrategy.kind ===
-          stashOnCurrentBranch.kind &&
-        couldOverwriteStash
-      ) {
-        dispatcher.showPopup({
-          type: PopupType.ConfirmOverwriteStash,
-          repository,
-          branchToCheckout: branch,
-        })
-        return
-      }
-
       const timer = startTimer('checkout branch from list', repository)
 
       // Never prompt to stash changes if someone is switching away from a protected branch
@@ -249,7 +252,7 @@ export class BranchesContainer extends React.Component<
             kind: UncommittedChangesStrategyKind.MoveToNewBranch,
             transientStashEntry: null,
           }
-        : this.props.selectedUncommittedChangesStrategy
+        : askToStash
 
       this.props.dispatcher
         .checkoutBranch(repository, branch, strategy)
@@ -281,9 +284,31 @@ export class BranchesContainer extends React.Component<
     this.onCreateBranchWithName('')
   }
 
+  private onPullRequestFilterTextChanged = (text: string) => {
+    this.setState({ pullRequestFilterText: text })
+  }
+
   private onPullRequestSelectionChanged = (
     selectedPullRequest: PullRequest | null
   ) => {
     this.setState({ selectedPullRequest })
+  }
+
+  private onCreatePullRequest = () => {
+    this.props.dispatcher.closeFoldout(FoldoutType.Branch)
+    this.props.dispatcher.createPullRequest(this.props.repository)
+  }
+
+  private onPullRequestClicked = (pullRequest: PullRequest) => {
+    this.props.dispatcher.closeFoldout(FoldoutType.Branch)
+    const timer = startTimer(
+      'checkout pull request from list',
+      this.props.repository
+    )
+    this.props.dispatcher
+      .checkoutPullRequest(this.props.repository, pullRequest)
+      .then(() => timer.done())
+
+    this.onPullRequestSelectionChanged(pullRequest)
   }
 }

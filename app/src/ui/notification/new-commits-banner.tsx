@@ -8,11 +8,7 @@ import { Repository } from '../../models/repository'
 import { HistoryTabMode, ComparisonMode } from '../../lib/app-state'
 import { PopupType } from '../../models/popup'
 
-export enum DismissalReason {
-  Close = 'close',
-  Compare = 'compare',
-  Merge = 'merge',
-}
+export type DismissalReason = 'close' | 'compare' | 'merge'
 
 interface INewCommitsBannerProps {
   readonly dispatcher: Dispatcher
@@ -90,7 +86,7 @@ export class NewCommitsBanner extends React.Component<
   }
 
   private onDismissed = () => {
-    this.props.onDismiss(DismissalReason.Close)
+    this.props.onDismiss('close')
   }
 
   private onComparedClicked = () => {
@@ -102,7 +98,7 @@ export class NewCommitsBanner extends React.Component<
       comparisonMode: ComparisonMode.Behind,
     })
     dispatcher.recordDivergingBranchBannerInitiatedCompare()
-    this.props.onDismiss(DismissalReason.Compare)
+    this.props.onDismiss('compare')
   }
 
   private onMergeClicked = () => {
@@ -114,6 +110,6 @@ export class NewCommitsBanner extends React.Component<
       repository,
     })
     dispatcher.recordDivergingBranchBannerInitatedMerge()
-    this.props.onDismiss(DismissalReason.Merge)
+    this.props.onDismiss('merge')
   }
 }

@@ -11,7 +11,6 @@ import { CommitAttribution } from '../lib/commit-attribution'
 import { IGitHubUser } from '../../lib/databases/github-user-database'
 import { AvatarStack } from '../lib/avatar-stack'
 import { IMenuItem } from '../../lib/menu-item'
-import { Octicon, OcticonSymbol } from '../octicons'
 
 interface ICommitProps {
   readonly gitHubRepository: GitHubRepository | null
@@ -21,7 +20,6 @@ interface ICommitProps {
   readonly onRevertCommit?: (commit: Commit) => void
   readonly onViewCommitOnGitHub?: (sha: string) => void
   readonly gitHubUsers: Map<string, IGitHubUser> | null
-  readonly showUnpushedIndicator: boolean
 }
 
 interface ICommitListItemState {
@@ -59,9 +57,7 @@ export class CommitListItem extends React.Component<
 
   public render() {
     const commit = this.props.commit
-    const {
-      author: { date },
-    } = commit
+    const author = commit.author
 
     return (
       <div className="commit" onContextMenu={this.onContextMenu}>
@@ -78,38 +74,17 @@ export class CommitListItem extends React.Component<
               <CommitAttribution
                 gitHubRepository={this.props.gitHubRepository}
                 commit={commit}
-              />
-              {renderRelativeTime(date)}
+              />{' '}
+              <RelativeTime date={author.date} />
             </div>
           </div>
         </div>
-        {this.renderUnpushedIndicator()}
       </div>
     )
   }
 
   public shouldComponentUpdate(nextProps: ICommitProps): boolean {
-    return (
-      this.props.commit.sha !== nextProps.commit.sha ||
-      this.props.showUnpushedIndicator !== nextProps.showUnpushedIndicator
-    )
-  }
-
-  private renderUnpushedIndicator() {
-    if (!this.props.showUnpushedIndicator) {
-      return null
-    }
-
-    return (
-      <div className="unpushed-indicator-container">
-        <div
-          className="unpushed-indicator"
-          title="This commit hasn't been pushed to the remote repository yet"
-        >
-          <Octicon symbol={OcticonSymbol.arrowUp} />
-        </div>
-      </div>
-    )
+    return this.props.commit.sha !== nextProps.commit.sha
   }
 
   private onCopySHA = () => {
@@ -159,13 +134,4 @@ export class CommitListItem extends React.Component<
 
     showContextualMenu(items)
   }
-}
-
-function renderRelativeTime(date: Date) {
-  return (
-    <>
-      {` • `}
-      <RelativeTime date={date} />
-    </>
-  )
 }

@@ -105,12 +105,10 @@ export class OnboardingTutorialAssessor {
     const { tip } = branchesState
 
     if (tip.kind === TipState.Valid) {
-      const commit = repositoryState.commitLookup.get(tip.branch.tip.sha)
-
       // For some reason sometimes the initial commit has a parent sha
       // listed as an empty string...
       // For now I'm filtering those out. Would be better to prevent that from happening
-      return commit !== undefined && commit.parentSHAs.some(x => x.length > 0)
+      return tip.branch.tip.parentSHAs.some(x => x.length > 0)
     }
 
     return false

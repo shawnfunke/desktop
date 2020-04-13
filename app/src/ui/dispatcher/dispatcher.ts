@@ -40,7 +40,6 @@ import {
 import {
   matchExistingRepository,
   urlMatchesCloneURL,
-  urlsMatch,
 } from '../../lib/repository-matching'
 import { Shell } from '../../lib/shells'
 import { ILaunchStats, StatsStore } from '../../lib/stats'
@@ -65,12 +64,7 @@ import { GitHubRepository } from '../../models/github-repository'
 import { ManualConflictResolution } from '../../models/manual-conflict-resolution'
 import { Popup, PopupType } from '../../models/popup'
 import { PullRequest } from '../../models/pull-request'
-import {
-  Repository,
-  RepositoryWithGitHubRepository,
-  isRepositoryWithGitHubRepository,
-  getGitHubHtmlUrl,
-} from '../../models/repository'
+import { Repository } from '../../models/repository'
 import { RetryAction, RetryActionType } from '../../models/retry-actions'
 import {
   CommittedFileChange,
@@ -88,10 +82,7 @@ import {
   StatusCallBack,
 } from '../../lib/stores/commit-status-store'
 import { MergeResult } from '../../models/merge'
-import {
-  UncommittedChangesStrategy,
-  UncommittedChangesStrategyKind,
-} from '../../models/uncommitted-changes-strategy'
+import { UncommittedChangesStrategy } from '../../models/uncommitted-changes-strategy'
 import { RebaseFlowStep, RebaseStep } from '../../models/rebase-flow-step'
 import { IStashEntry } from '../../models/stash-entry'
 
@@ -476,22 +467,20 @@ export class Dispatcher {
     repository: Repository,
     name: string,
     startPoint: string | null,
-    uncommittedChangesStrategy?: UncommittedChangesStrategy,
-    noTrackOption: boolean = false
+    uncommittedChangesStrategy?: UncommittedChangesStrategy
   ): Promise<Repository> {
     return this.appStore._createBranch(
       repository,
       name,
       startPoint,
-      uncommittedChangesStrategy,
-      noTrackOption
+      uncommittedChangesStrategy
     )
   }
 
   /** Check out the given branch. */
   public checkoutBranch(
     repository: Repository,
-    branch: Branch,
+    branch: Branch | string,
     uncommittedChangesStrategy?: UncommittedChangesStrategy
   ): Promise<Repository> {
     return this.appStore._checkoutBranch(
@@ -692,24 +681,16 @@ export class Dispatcher {
   }
 
   /**
-   * Set the divering branch notification nudge's visibility
+   * Set the divering branch notification banner's visibility
    */
-  public setDivergingBranchNudgeVisibility(
+  public setDivergingBranchBannerVisibility(
     repository: Repository,
     isVisible: boolean
   ) {
-    return this.appStore._updateDivergingBranchBannerState(repository, {
-      isNudgeVisible: isVisible,
-    })
-  }
-
-  /**
-   * Hide the divering branch notification banner
-   */
-  public dismissDivergingBranchBanner(repository: Repository) {
-    return this.appStore._updateDivergingBranchBannerState(repository, {
-      isPromptDismissed: true,
-    })
+    return this.appStore._setDivergingBranchBannerVisibility(
+      repository,
+      isVisible
+    )
   }
 
   /**
@@ -1347,16 +1328,6 @@ export class Dispatcher {
   }
 
   /**
-   * Show a dialog that helps the user create a fork of
-   * their local repo.
-   */
-  public async showCreateForkDialog(
-    repository: RepositoryWithGitHubRepository
-  ): Promise<void> {
-    await this.appStore._showCreateforkDialog(repository)
-  }
-
-  /**
    * Register a new error handler.
    *
    * Error handlers are called in order starting with the most recently
@@ -1380,12 +1351,12 @@ export class Dispatcher {
    */
   public async relocateRepository(repository: Repository): Promise<void> {
     const window = remote.getCurrentWindow()
-    const { filePaths } = await remote.dialog.showOpenDialog(window, {
+    const directories = remote.dialog.showOpenDialog(window, {
       properties: ['openDirectory'],
     })
 
-    if (filePaths.length > 0) {
-      const newPath = filePaths[0]
+    if (directories && directories.length > 0) {
+      const newPath = directories[0]
       await this.updateRepositoryPath(repository, newPath)
     }
   }
@@ -1405,101 +1376,6 @@ export class Dispatcher {
       this.commitStatusStore.startBackgroundRefresh()
     } else {
       this.commitStatusStore.stopBackgroundRefresh()
-    }
-  }
-
-  private async getForkAndUpstreamRepos(url: string) {
-    const state = this.appStore.getState()
-    const repositories = state.repositories
-
-    const forks: Array<Repository> = []
-    const upstreams: Array<Repository> = []
-
-    for (const repo of repositories) {
-      // ensure that repo is not an instance of CloningRepository
-      if (
-        repo instanceof Repository &&
-        isRepositoryWithGitHubRepository(repo)
-      ) {
-        const defaultUrl = repo.gitHubRepository.htmlURL
-        const upstreamUrl =
-          repo.gitHubRepository.parent && repo.gitHubRepository.parent.htmlURL
-        if (defaultUrl && urlsMatch(defaultUrl, url)) {
-          upstreams.push(repo)
-        } else if (upstreamUrl && urlsMatch(upstreamUrl, url)) {
-          forks.push(repo)
-        }
-      }
-    }
-
-    return { forks, upstreams }
-  }
-
-  private async openRepositoryFromUrl(action: IOpenRepositoryFromURLAction) {
-    const { url, pr } = action
-    const pullRequest = pr
-      ? await this.appStore.fetchPullRequest(url, pr)
-      : null
-    const sourceUrl =
-      pullRequest && pullRequest.head.repo && pullRequest.head.repo.html_url
-
-    const { forks, upstreams } = await this.getForkAndUpstreamRepos(url)
-
-    // If source is in Desktop as a fork, open fork and checkout PR branch
-    const forkMatch = forks.find(fork => {
-      return Boolean(
-        fork.gitHubRepository &&
-          fork.gitHubRepository.htmlURL &&
-          sourceUrl &&
-          urlsMatch(fork.gitHubRepository.htmlURL, sourceUrl)
-      )
-    })
-
-    if (forkMatch) {
-      await this.selectRepository(forkMatch)
-      const branch = pullRequest && pullRequest.head.ref
-      if (branch) {
-        await this.checkoutLocalBranch(forkMatch, branch)
-      }
-      return
-    }
-
-    // If source is in Desktop as an upstream, open upstream and checkout PR branch
-    const upstreamMatch = upstreams.find(upstream => {
-      return Boolean(
-        upstream.gitHubRepository &&
-          upstream.gitHubRepository.htmlURL &&
-          sourceUrl &&
-          urlsMatch(upstream.gitHubRepository.htmlURL, sourceUrl)
-      )
-    })
-
-    if (upstreamMatch) {
-      await this.selectRepository(upstreamMatch)
-      await this.handleCloneInDesktopOptions(upstreamMatch, action)
-      return
-    }
-
-    // If you only have your fork in Desktop, open your fork.
-    // Checkout branch based on PR source -- `handleCloneInDesktopOptions`
-    // handles cases when source is upstream or someone else's fork
-    if (forks.length > 0 && upstreams.length === 0) {
-      const fork = forks[0]
-      await this.selectRepository(fork)
-      await this.handleCloneInDesktopOptions(fork, action) // double check that refspec fetch works correctly
-      return
-    }
-
-    // Otherwise back to default case
-    const repository = await this.openOrCloneRepository(url)
-    if (repository) {
-      await this.handleCloneInDesktopOptions(repository, action)
-    } else {
-      log.warn(
-        `Open Repository from URL failed, did not find or clone repository: ${url} - payload: ${JSON.stringify(
-          action
-        )}`
-      )
     }
   }
 
@@ -1532,7 +1408,17 @@ export class Dispatcher {
         break
 
       case 'open-repository-from-url':
-        this.openRepositoryFromUrl(action)
+        const { url } = action
+        const repository = await this.openOrCloneRepository(url)
+        if (repository) {
+          await this.handleCloneInDesktopOptions(repository, action)
+        } else {
+          log.warn(
+            `Open Repository from URL failed, did not find or clone repository: ${url} - payload: ${JSON.stringify(
+              action
+            )}`
+          )
+        }
         break
 
       case 'open-repository-from-path':
@@ -1592,15 +1478,6 @@ export class Dispatcher {
   }
 
   /**
-   * Sets the user's preference for handling uncommitted changes when switching branches
-   */
-  public setUncommittedChangesStrategyKindSetting(
-    value: UncommittedChangesStrategyKind
-  ): Promise<void> {
-    return this.appStore._setUncommittedChangesStrategyKindSetting(value)
-  }
-
-  /**
    * Sets the user's preference for an external program to open repositories in.
    */
   public setExternalEditor(editor: ExternalEditor): Promise<void> {
@@ -1612,33 +1489,6 @@ export class Dispatcher {
    */
   public setShell(shell: Shell): Promise<void> {
     return this.appStore._setShell(shell)
-  }
-
-  public async checkoutLocalBranch(repository: Repository, branch: string) {
-    let shouldCheckoutBranch = true
-
-    const state = this.repositoryStateManager.get(repository)
-    const branches = state.branchesState.allBranches
-
-    const { tip } = state.branchesState
-
-    if (tip.kind === TipState.Valid) {
-      shouldCheckoutBranch = tip.branch.nameWithoutRemote !== branch
-    }
-
-    const localBranch = branches.find(b => b.nameWithoutRemote === branch)
-
-    // N.B: This looks weird, and it is. _checkoutBranch used
-    // to behave this way (silently ignoring checkout) when given
-    // a branch name string that does not correspond to a local branch
-    // in the git store. When rewriting _checkoutBranch
-    // to remove the support for string branch names the behavior
-    // was moved up to this method to not alter the current behavior.
-    //
-    // https://youtu.be/IjmtVKOAHPM
-    if (shouldCheckoutBranch && localBranch !== undefined) {
-      await this.checkoutBranch(repository, localBranch)
-    }
   }
 
   private async handleCloneInDesktopOptions(
@@ -1657,9 +1507,10 @@ export class Dispatcher {
     await this.appStore._refreshRepository(repository)
 
     const state = this.repositoryStateManager.get(repository)
-    const branches = state.branchesState.allBranches
 
     if (pr == null && branch != null) {
+      const branches = state.branchesState.allBranches
+
       // I don't want to invoke Git functionality from the dispatcher, which
       // would help by using getDefaultRemote here to get the definitive ref,
       // so this falls back to finding any remote branch matching the name
@@ -1673,7 +1524,17 @@ export class Dispatcher {
     }
 
     if (branch != null) {
-      await this.checkoutLocalBranch(repository, branch)
+      let shouldCheckoutBranch = true
+
+      const { tip } = state.branchesState
+
+      if (tip.kind === TipState.Valid) {
+        shouldCheckoutBranch = tip.branch.nameWithoutRemote !== branch
+      }
+
+      if (shouldCheckoutBranch) {
+        await this.checkoutBranch(repository, branch)
+      }
     }
 
     if (filepath != null) {
@@ -1825,6 +1686,11 @@ export class Dispatcher {
    */
   public refreshApiRepositories(account: Account) {
     return this.appStore._refreshApiRepositories(account)
+  }
+
+  /** Open the merge tool for the given file. */
+  public openMergeTool(repository: Repository, path: string): Promise<void> {
+    return this.appStore._openMergeTool(repository, path)
   }
 
   /** Change the selected Branches foldout tab. */
@@ -1997,17 +1863,6 @@ export class Dispatcher {
 
   public setConfirmForcePushSetting(value: boolean) {
     return this.appStore._setConfirmForcePushSetting(value)
-  }
-
-  /**
-   * Converts a local repository to use the given fork
-   * as its default remote and associated `GitHubRepository`.
-   */
-  public async convertRepositoryToFork(
-    repository: RepositoryWithGitHubRepository,
-    fork: IAPIRepository
-  ) {
-    await this.appStore._convertRepositoryToFork(repository, fork)
   }
 
   /**
@@ -2309,7 +2164,7 @@ export class Dispatcher {
    */
   public async moveChangesToBranchAndCheckout(
     repository: Repository,
-    branchToCheckout: Branch
+    branchToCheckout: string
   ) {
     return this.appStore._moveChangesToBranchAndCheckout(
       repository,
@@ -2341,36 +2196,15 @@ export class Dispatcher {
   }
 
   /**
-   * Increments the `forksCreated ` metric` indicating that the user has
-   * elected to create a fork when presented with a dialog informing
-   * them that they don't have write access to the current repository.
+   * Onboarding tutorial has been started
    */
-  public recordForkCreated() {
-    return this.statsStore.recordForkCreated()
+  public recordTutorialStarted() {
+    return this.statsStore.recordTutorialStarted()
   }
-
   /**
-   * Create a tutorial repository using the given account. The account
-   * determines which host (i.e. GitHub.com or a GHES instance) that
-   * the tutorial repository should be created on.
-   *
-   * @param account The account (and thereby the GitHub host) under
-   *                which the repository is to be created created
+   * Onboarding tutorial has been successfully created
    */
-  public createTutorialRepository(account: Account) {
-    return this.appStore._createTutorialRepository(account)
-  }
-
-  /** Open the issue creation page for a GitHub repository in a browser */
-  public async openIssueCreationPage(repository: Repository): Promise<boolean> {
-    // Default to creating issue on parent repo
-    // See https://github.com/desktop/desktop/issues/9232 for rationale
-    const url = getGitHubHtmlUrl(repository)
-    if (url !== null) {
-      this.statsStore.recordIssueCreationWebpageOpened()
-      return this.appStore._openInBrowser(`${url}/issues/new/choose`)
-    } else {
-      return false
-    }
+  public recordTutorialRepoCreated() {
+    return this.statsStore.recordTutorialRepoCreated()
   }
 }

@@ -28,9 +28,6 @@ These shells are currently supported:
  - [PowerShell Core](https://github.com/powershell/powershell/)
  - [Hyper](https://hyper.sh/)
  - Git Bash (from [Git for Windows](https://git-for-windows.github.io/))
- - [Cygwin](https://www.cygwin.com/)
- - [WSL](https://docs.microsoft.com/en-us/windows/wsl/about) (beta)
- - [Windows Terminal](https://github.com/microsoft/terminal)
 
 These are defined in an enum at the top of the file:
 
@@ -41,9 +38,6 @@ export enum Shell {
   PowerShellCore = 'PowerShell Core',
   Hyper = 'Hyper',
   GitBash = 'Git Bash',
-  Cygwin = 'Cygwin',
-  WSL = 'WSL',
-  WindowTerminal = 'Windows Terminal',
 }
 ```
 

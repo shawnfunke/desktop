@@ -1,5 +1,3 @@
-import { Branch } from '../models/branch'
-
 type MergeOrPullConflictsErrorContext = {
   /** The Git operation that triggered the conflicted state */
   readonly kind: 'merge' | 'pull'
@@ -15,7 +13,7 @@ type CheckoutBranchErrorContext = {
   readonly kind: 'checkout'
 
   /** The branch associated with the current tip of the repository, "ours" in Git terminology */
-  readonly branchToCheckout: Branch
+  readonly branchToCheckout: string
 }
 
 /** A custom shape of data for actions to provide to help with error handling */

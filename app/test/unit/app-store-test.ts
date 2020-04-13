@@ -11,7 +11,6 @@ import {
   RepositoriesStore,
   AccountsStore,
   PullRequestStore,
-  PullRequestCoordinator,
 } from '../../src/lib/stores'
 import {
   TestGitHubUserDatabase,
@@ -67,8 +66,8 @@ describe('AppStore', () => {
       new AsyncInMemoryStore()
     )
 
-    const pullRequestCoordinator = new PullRequestCoordinator(
-      new PullRequestStore(new TestPullRequestDatabase(), repositoriesStore),
+    const pullRequestStore = new PullRequestStore(
+      new TestPullRequestDatabase(),
       repositoriesStore
     )
 
@@ -88,7 +87,7 @@ describe('AppStore', () => {
       new SignInStore(),
       accountsStore,
       repositoriesStore,
-      pullRequestCoordinator,
+      pullRequestStore,
       repositoryStateManager,
       apiRepositoriesStore
     )
